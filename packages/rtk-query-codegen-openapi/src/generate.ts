@@ -67,6 +67,7 @@ export async function generateApi(
     argSuffix = 'ApiArg',
     responseSuffix = 'ApiResponse',
     hooks = false,
+    tags = false,
     outputFile,
     isDataResponse = defaultIsDataResponse,
     filterEndpoints,
@@ -294,6 +295,14 @@ export async function generateApi(
       ).name
     );
 
+    const getTagNameOrUndefined = (operation: OpenAPIV3.OperationObject): string | undefined => {
+      if (!operation.tags || operation.tags.length !== 1) {
+        return undefined;
+      }
+      return operation.tags[0]
+    }
+
+    const tagName = tags ? getTagNameOrUndefined(operationDefinition.operation) : undefined;
     return generateEndpointDefinition({
       operationName,
       type: isQuery ? 'query' : 'mutation',
@@ -301,8 +310,8 @@ export async function generateApi(
       QueryArg,
       queryFn: generateQueryFn({ operationDefinition, queryArg, isQuery }),
       extraEndpointsProps: isQuery
-        ? generateQueryEndpointProps({ operationDefinition })
-        : generateMutationEndpointProps({ operationDefinition }),
+        ? generateQueryEndpointProps({ operationDefinition, tagName })
+        : generateMutationEndpointProps({ operationDefinition, tagName }),
     });
   }
 
@@ -391,14 +400,21 @@ export async function generateApi(
     );
   }
 
-  // eslint-disable-next-line no-empty-pattern
-  function generateQueryEndpointProps({}: { operationDefinition: OperationDefinition }): ObjectPropertyDefinitions {
-    return {}; /* TODO needs implementation - skip for now */
+  function generateQueryEndpointProps({ tagName }: { operationDefinition: OperationDefinition, tagName?: string }): ObjectPropertyDefinitions {
+    if (!tagName) {
+      return {};
+    }
+    return {
+      providesTags: factory.createArrayLiteralExpression([factory.createStringLiteral(tagName)]),
+    };
   }
-
-  // eslint-disable-next-line no-empty-pattern
-  function generateMutationEndpointProps({}: { operationDefinition: OperationDefinition }): ObjectPropertyDefinitions {
-    return {}; /* TODO needs implementation - skip for now */
+  function generateMutationEndpointProps({ tagName }: { operationDefinition: OperationDefinition, tagName?: string }): ObjectPropertyDefinitions {
+    if (!tagName) {
+      return {};
+    }
+    return {
+      invalidatesTags: factory.createArrayLiteralExpression([factory.createStringLiteral(tagName)]),
+    };
   }
 }
 
